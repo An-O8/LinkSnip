@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — LinkSnip</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <h1>🔗 LinkSnip</h1>
+      <p>Sign in to manage your links</p>
+    </div>
+
+    <div id="alert" class="alert hidden"></div>
+
+    <form id="login-form">
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" id="email" class="form-input" placeholder="you@example.com" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" id="password" class="form-input" placeholder="••••••••" required>
+      </div>
+      <button type="submit" id="submit-btn" class="btn btn-primary" style="width:100%; justify-content:center; padding:12px;">
+        Sign In
+      </button>
+    </form>
+
+    <div class="auth-footer">
+      Don't have an account? <a href="/pages/signup.html">Create one</a>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+  // If already logged in, go to dashboard
+  initTheme()
+  if (getToken()) window.location.href = '/pages/dashboard.html'
+
+  document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault()
+
+    const btn = document.getElementById('submit-btn')
+    btn.disabled = true
+    btn.textContent = 'Signing in...'
+
+    const email    = document.getElementById('email').value
+    const password = document.getElementById('password').value
+
+    const { ok, data } = await apiFetch('/auth/login', {
+      method: 'POST',
+      body: { email, password }
+    })
+
+    if (ok) {
+      setAuth(data.token, data.user)
+      window.location.href = '/pages/dashboard.html'
+    } else {
+      showAlert('alert', data.message)
+      btn.disabled = false
+      btn.textContent = 'Sign In'
+    }
+  })
+</script>
+</body>
+</html>

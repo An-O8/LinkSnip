@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel - LinkSnip</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/pages/dashboard.html" class="navbar-brand">🔗 LinkSnip</a>
+  <ul class="navbar-nav">
+    <li><span style="font-size:12px; padding:3px 8px; background:#ede9fe; color:#4f46e5; border-radius:999px; font-weight:600;">ADMIN</span></li>
+    <li><button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">🌙</button></li>
+    <li><button onclick="logout()" class="btn btn-outline btn-sm">Logout</button></li>
+  </ul>
+</nav>
+
+<div class="layout">
+  <aside class="sidebar">
+    <a href="/pages/dashboard.html" class="sidebar-link">📊 Dashboard</a>
+    <a href="/pages/analytics.html" class="sidebar-link">📈 Analytics</a>
+    <a href="/pages/qr.html" class="sidebar-link">📱 QR Codes</a>
+    <a href="/pages/settings.html" class="sidebar-link">⚙️ Settings</a>
+    <a href="/pages/admin.html" class="sidebar-link active">🛡️ Admin Panel</a>
+  </aside>
+
+  <main class="main-content">
+    <!-- Stats -->
+    <div class="stats-grid" style="grid-template-columns:repeat(4,1fr); margin-bottom:24px;">
+      <div class="stat-card"><div class="stat-value" id="s-users">-</div><div class="stat-label">Total Users</div></div>
+      <div class="stat-card"><div class="stat-value" id="s-links">-</div><div class="stat-label">Total Links</div></div>
+      <div class="stat-card"><div class="stat-value" id="s-clicks">-</div><div class="stat-label">Total Clicks</div></div>
+      <div class="stat-card"><div class="stat-value" id="s-week">-</div><div class="stat-label">Clicks This Week</div></div>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex; gap:4px; margin-bottom:20px; border-bottom:1px solid #e2e8f0; padding-bottom:0;">
+      <button class="tab-btn active" onclick="showTab('users', this)">👥 Users</button>
+      <button class="tab-btn" onclick="showTab('links', this)">🔗 All Links</button>
+    </div>
+
+    <!-- Users tab -->
+    <div id="tab-users" class="card">
+      <div class="card-header">
+        <h2 class="card-title">All Users</h2>
+        <input type="text" id="user-search" class="form-input" style="width:200px;" placeholder="Search by name/email..." oninput="filterUsers()">
+      </div>
+      <div id="users-loading" style="text-align:center;padding:30px;color:#718096;">Loading...</div>
+      <table class="links-table hidden" id="users-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Joined</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="users-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Links tab -->
+    <div id="tab-links" class="card hidden">
+      <div class="card-header">
+        <h2 class="card-title">All Links</h2>
+      </div>
+      <div id="links-loading" style="text-align:center;padding:30px;color:#718096;">Loading...</div>
+      <table class="links-table hidden" id="links-table">
+        <thead>
+          <tr>
+            <th>Short URL</th>
+            <th>Owner</th>
+            <th class="hide-mobile">Destination</th>
+            <th>Clicks</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="links-tbody"></tbody>
+      </table>
+    </div>
+
+  </main>
+</div>
+
+<style>
+  .tab-btn {
+    padding: 10px 20px;
+    border: none;
+    background: transparent;
+    font-size: 14px;
+    font-weight: 500;
+    color: #718096;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.15s;
+  }
+  .tab-btn.active { color: #4f46e5; border-bottom-color: #4f46e5; }
+  .tab-btn:hover  { color: #4f46e5; }
+</style>
+
+<script src="/js/api.js"></script>
+<script>
+  if (!requireAuth()) throw new Error()
+  initTheme()
+  const user = getUser()
+  if (user.role !== 'admin') {
+    alert('Admin access only.')
+    window.location.href = '/pages/dashboard.html'
+  }
+
+  const SHORT_DOMAIN = API.replace('/api', '') // e.g. http://localhost:5000
+
+  let allUsers = []
+
+  function showTab(name, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'))
+    btn.classList.add('active')
+    document.getElementById('tab-users').classList.toggle('hidden', name !== 'users')
+    document.getElementById('tab-links').classList.toggle('hidden', name !== 'links')
+    if (name === 'links') loadAllLinks()
+  }
+
+  // Load stats
+  async function loadStats() {
+    const { ok, data } = await apiFetch('/admin/stats')
+    if (!ok) return
+    document.getElementById('s-users').textContent  = formatNumber(data.totalUsers)
+    document.getElementById('s-links').textContent  = formatNumber(data.totalLinks)
+    document.getElementById('s-clicks').textContent = formatNumber(data.totalClicks)
+    document.getElementById('s-week').textContent   = formatNumber(data.clicksThisWeek)
+  }
+
+  // Load users
+  async function loadUsers() {
+    const { ok, data } = await apiFetch('/admin/users')
+    document.getElementById('users-loading').classList.add('hidden')
+    document.getElementById('users-table').classList.remove('hidden')
+    if (!ok) return
+
+    allUsers = data.users
+    renderUsers(allUsers)
+  }
+
+  function renderUsers(users) {
+    document.getElementById('users-tbody').innerHTML = users.map(u => `
+      <tr>
+        <td style="font-weight:500;">${u.name}</td>
+        <td style="color:#718096; font-size:13px;">${u.email}</td>
+        <td>
+          ${u.role === 'admin'
+            ? '<span class="badge badge-blue">Admin</span>'
+            : '<span class="badge badge-gray">User</span>'}
+        </td>
+        <td>
+          ${u.isBlocked
+            ? '<span class="badge badge-red">Blocked</span>'
+            : '<span class="badge badge-green">Active</span>'}
+        </td>
+        <td style="color:#718096; font-size:13px;">${formatDate(u.createdAt)}</td>
+        <td>
+          <button
+            onclick="toggleBlock('${u._id}', this)"
+            class="btn btn-sm ${u.isBlocked ? 'btn-primary' : 'btn-danger'}"
+            ${u.role === 'admin' ? 'disabled title="Cannot block admins"' : ''}
+          >
+            ${u.isBlocked ? 'Unblock' : 'Block'}
+          </button>
+        </td>
+      </tr>
+    `).join('')
+  }
+
+  function filterUsers() {
+    const q = document.getElementById('user-search').value.toLowerCase()
+    renderUsers(allUsers.filter(u =>
+      u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+    ))
+  }
+
+  async function toggleBlock(userId, btn) {
+    btn.disabled = true
+    const { ok, data } = await apiFetch(`/admin/users/${userId}/block`, { method: 'PATCH' })
+    if (ok) {
+      loadUsers()  // refresh the table
+    } else {
+      toast(data.message, 'error')
+      btn.disabled = false
+    }
+  }
+
+  // Load all links
+  async function loadAllLinks() {
+    const { ok, data } = await apiFetch('/admin/links')
+    document.getElementById('links-loading').classList.add('hidden')
+    document.getElementById('links-table').classList.remove('hidden')
+    if (!ok) return
+
+    document.getElementById('links-tbody').innerHTML = data.links.map(l => `
+      <tr>
+        <td>
+          <a href="${SHORT_DOMAIN}/${l.shortCode}" target="_blank" style="color:#4f46e5; font-weight:500;">
+            /${l.shortCode}
+          </a>
+        </td>
+        <td style="font-size:13px;">
+          ${l.userId ? `${l.userId.name}<br><span style="color:#718096;">${l.userId.email}</span>` : 'Unknown'}
+        </td>
+        <td class="hide-mobile" style="color:#718096; font-size:13px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+          ${l.originalUrl}
+        </td>
+        <td><strong>${formatNumber(l.clickCount)}</strong></td>
+        <td>
+          <button onclick="removeLink('${l._id}', this)" class="btn btn-danger btn-sm">Remove</button>
+        </td>
+      </tr>
+    `).join('')
+  }
+
+  async function removeLink(id, btn) {
+    if (!confirm('Remove this link?')) return
+    btn.disabled = true
+    const { ok } = await apiFetch(`/admin/links/${id}`, { method: 'DELETE' })
+    if (ok) loadAllLinks()
+    else btn.disabled = false
+  }
+
+  function logout() { clearAuth(); window.location.href = '/pages/login.html' }
+
+  loadStats()
+  loadUsers()
+</script>
+</body>
+</html>

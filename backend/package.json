@@ -1,0 +1,28 @@
+{
+  "name": "linksnip-backend",
+  "version": "1.0.0",
+  "description": "LinkSnip — a production-quality URL shortener API",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "geoip-lite": "^1.4.10",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.5.0",
+    "nanoid": "^3.3.7",
+    "qrcode": "^1.5.3",
+    "sharp": "^0.33.4",
+    "ua-parser-js": "^1.0.38",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}

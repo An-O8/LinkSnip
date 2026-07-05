@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analytics - LinkSnip</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/pages/dashboard.html" class="navbar-brand">🔗 LinkSnip</a>
+  <ul class="navbar-nav">
+    <li><span id="user-name" style="font-size:14px;color:var(--muted);"></span></li>
+    <li><button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">🌙</button></li>
+    <li><button onclick="logout()" class="btn btn-outline btn-sm">Logout</button></li>
+  </ul>
+</nav>
+
+<div class="layout">
+  <aside class="sidebar">
+    <a href="/pages/dashboard.html" class="sidebar-link">📊 Dashboard</a>
+    <a href="/pages/analytics.html" class="sidebar-link active">📈 Analytics</a>
+    <a href="/pages/qr.html" class="sidebar-link">📱 QR Codes</a>
+    <a href="/pages/settings.html" class="sidebar-link">⚙️ Settings</a>
+    <div id="admin-link" class="hidden">
+      <a href="/pages/admin.html" class="sidebar-link">🛡️ Admin Panel</a>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <!-- Link selector -->
+    <div class="card mb-6">
+      <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+        <div style="flex:1; min-width:200px;">
+          <label class="form-label">Select a link</label>
+          <select id="link-select" class="form-input" onchange="loadAnalytics()">
+            <option value="">Loading your links...</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Date range</label>
+          <select id="range-select" class="form-input" onchange="loadAnalytics()">
+            <option value="7">Last 7 days</option>
+            <option value="14">Last 14 days</option>
+            <option value="30">Last 30 days</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label" style="display:flex; align-items:center; gap:6px;">
+            <span class="live-dot"></span> Live
+          </label>
+          <label style="display:inline-flex; align-items:center; gap:6px; height:40px; cursor:pointer;">
+            <input type="checkbox" id="live-toggle" checked onchange="toggleLive()">
+            <span style="font-size:13px; color:var(--muted);">Auto-refresh clicks</span>
+          </label>
+        </div>
+        <div>
+          <label class="form-label">&nbsp;</label>
+          <button onclick="exportCSV()" class="btn btn-outline" style="display:block;">⬇️ Export CSV</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="analytics-empty" class="card text-center" style="padding:60px;">
+      <div style="font-size:48px; margin-bottom:16px;">📈</div>
+      <p style="color:var(--muted);">Select a link above to see its analytics</p>
+    </div>
+
+    <div id="analytics-content" class="hidden">
+      <!-- Stats row -->
+      <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
+        <div class="stat-card">
+          <div class="stat-value" id="a-total">0</div>
+          <div class="stat-label" style="display:flex; align-items:center; justify-content:center; gap:6px;">
+            Total Clicks <span class="live-dot" id="live-indicator" style="display:none;"></span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="a-range">0</div>
+          <div class="stat-label">Clicks in Range</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="a-top-device">-</div>
+          <div class="stat-label">Top Device</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="a-top-browser">-</div>
+          <div class="stat-label">Top Browser</div>
+        </div>
+      </div>
+
+      <!-- Clicks over time -->
+      <div class="card mb-6">
+        <div class="card-header">
+          <h2 class="card-title">Clicks over time</h2>
+        </div>
+        <div class="chart-container">
+          <canvas id="clicks-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Pie charts row -->
+      <div class="charts-grid">
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Devices</h2>
+          </div>
+          <div class="chart-container" style="height:200px;">
+            <canvas id="device-chart"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Browsers</h2>
+          </div>
+          <div class="chart-container" style="height:200px;">
+            <canvas id="browser-chart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top countries -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <h2 class="card-title">Top Countries</h2>
+        </div>
+        <table class="links-table">
+          <thead><tr><th>Country</th><th>Clicks</th></tr></thead>
+          <tbody id="countries-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Referrers chart -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <h2 class="card-title">Top Referrers</h2>
+        </div>
+        <div id="referrers-empty" class="hidden" style="text-align:center; color:var(--muted); padding:20px;">No data yet</div>
+        <div class="chart-container" id="referrers-chart-wrap" style="height:220px;">
+          <canvas id="referrers-chart"></canvas>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<style>
+  .live-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--success); display: inline-block;
+    box-shadow: 0 0 0 0 rgba(16,185,129,0.6);
+    animation: live-pulse 1.6s infinite;
+  }
+  @keyframes live-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(16,185,129,0.5); }
+    70%  { box-shadow: 0 0 0 8px rgba(16,185,129,0); }
+    100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+  }
+</style>
+
+<script src="/js/api.js"></script>
+<script>
+  if (!requireAuth()) throw new Error()
+  initTheme()
+  const user = getUser()
+  document.getElementById('user-name').textContent = user.name
+  if (user.role === 'admin') document.getElementById('admin-link').classList.remove('hidden')
+
+  let currentLinkId = null
+  let liveEnabled = true
+  let pollTimer = null
+  let lastKnownTotal = null
+
+  let clicksChartInstance = null
+  let deviceChartInstance = null
+  let browserChartInstance = null
+  let referrersChartInstance = null
+
+  const COLORS = ['#5b4ff5','#06b6d4','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899']
+
+  // Load links into the dropdown
+  async function loadLinks() {
+    const { ok, data } = await apiFetch('/links')
+    if (!ok) return
+
+    const select = document.getElementById('link-select')
+    if (!data.links.length) {
+      select.innerHTML = '<option value="">No links yet - create one first</option>'
+      return
+    }
+
+    select.innerHTML = '<option value="">- Choose a link -</option>' +
+      data.links.map(l =>
+        `<option value="${l.id}">/${l.shortCode} (${l.clickCount} clicks)</option>`
+      ).join('')
+
+    const params = new URLSearchParams(window.location.search)
+    const preselect = params.get('id')
+    if (preselect) {
+      select.value = preselect
+      loadAnalytics()
+    }
+  }
+
+  // Live polling - checks total click count every 5s, refreshes chart data
+  //    only when it actually changed, so we don't hammer the chart re-renders ─
+  function toggleLive() {
+    liveEnabled = document.getElementById('live-toggle').checked
+    document.getElementById('live-indicator').style.display = liveEnabled && currentLinkId ? 'inline-block' : 'none'
+    if (liveEnabled) startPolling(); else stopPolling()
+  }
+  function startPolling() {
+    stopPolling()
+    if (!currentLinkId || !liveEnabled) return
+    pollTimer = setInterval(pollForNewClicks, 5000)
+  }
+  function stopPolling() {
+    if (pollTimer) clearInterval(pollTimer)
+    pollTimer = null
+  }
+  async function pollForNewClicks() {
+    if (!currentLinkId) return
+    const days = document.getElementById('range-select').value
+    const { ok, data } = await apiFetch(`/analytics/${currentLinkId}?days=${days}`)
+    if (!ok) return
+    if (lastKnownTotal !== null && data.totalClicks !== lastKnownTotal) {
+      // Click count changed since last check - refresh the full view
+      renderAnalytics(data)
+    }
+    lastKnownTotal = data.totalClicks
+  }
+
+  // Load analytics for selected link
+  async function loadAnalytics() {
+    const linkId = document.getElementById('link-select').value
+    const days   = document.getElementById('range-select').value
+    currentLinkId = linkId || null
+
+    if (!linkId) {
+      document.getElementById('analytics-content').classList.add('hidden')
+      document.getElementById('analytics-empty').classList.remove('hidden')
+      stopPolling()
+      return
+    }
+
+    const { ok, data } = await apiFetch(`/analytics/${linkId}?days=${days}`)
+    if (!ok) return
+
+    document.getElementById('analytics-empty').classList.add('hidden')
+    document.getElementById('analytics-content').classList.remove('hidden')
+
+    lastKnownTotal = data.totalClicks
+    renderAnalytics(data)
+
+    document.getElementById('live-indicator').style.display = liveEnabled ? 'inline-block' : 'none'
+    startPolling()
+  }
+
+  function renderAnalytics(data) {
+    // Stats
+    document.getElementById('a-total').textContent = formatNumber(data.totalClicks)
+    document.getElementById('a-range').textContent = formatNumber(data.clicksInRange)
+
+    const topDevice  = Object.entries(data.devices).sort((a,b)=>b[1]-a[1])[0]
+    const topBrowser = Object.entries(data.browsers).sort((a,b)=>b[1]-a[1])[0]
+    document.getElementById('a-top-device').textContent  = topDevice  ? topDevice[0]  : 'N/A'
+    document.getElementById('a-top-browser').textContent = topBrowser ? topBrowser[0] : 'N/A'
+
+    // Clicks over time chart
+    const dayLabels = Object.keys(data.clicksByDay).reverse()
+    const dayValues = dayLabels.map(k => data.clicksByDay[k])
+    renderLineChart('clicks-chart', dayLabels, dayValues)
+
+    // Device / browser pie charts
+    renderDoughnutChart('device-chart', data.devices)
+    renderDoughnutChart('browser-chart', data.browsers)
+
+    // Countries table
+    const countriesTbody = document.getElementById('countries-tbody')
+    const sortedCountries = Object.entries(data.countries || {}).sort((a, b) => b[1] - a[1])
+    countriesTbody.innerHTML = sortedCountries.length
+      ? sortedCountries.map(([country, count]) => `<tr><td>${country}</td><td><strong>${count}</strong></td></tr>`).join('')
+      : '<tr><td colspan="2" style="color:var(--muted); text-align:center; padding:20px;">No data yet</td></tr>'
+
+    // Referrers - now a horizontal bar chart instead of a table
+    renderReferrersChart(data.referrers)
+  }
+
+  function renderLineChart(canvasId, labels, values) {
+    if (clicksChartInstance) clicksChartInstance.destroy()
+    const ctx = document.getElementById(canvasId).getContext('2d')
+    clicksChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Clicks',
+          data: values,
+          borderColor: '#5b4ff5',
+          backgroundColor: 'rgba(91,79,245,0.08)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 4,
+          pointBackgroundColor: '#5b4ff5'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(120,120,140,0.1)' } },
+          x: { grid: { display: false } }
+        }
+      }
+    })
+  }
+
+  function renderDoughnutChart(canvasId, dataMap) {
+    const existing = Chart.getChart(canvasId)
+    if (existing) existing.destroy()
+
+    const labels = Object.keys(dataMap)
+    const values = Object.values(dataMap)
+
+    const ctx = document.getElementById(canvasId).getContext('2d')
+    new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: COLORS.slice(0, labels.length),
+          borderWidth: 2,
+          borderColor: 'var(--surface)'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { font: { size: 12 }, padding: 12 } }
+        }
+      }
+    })
+  }
+
+  function renderReferrersChart(referrersMap) {
+    const entries = Object.entries(referrersMap || {}).sort((a, b) => b[1] - a[1]).slice(0, 8)
+    document.getElementById('referrers-empty').classList.toggle('hidden', entries.length > 0)
+    document.getElementById('referrers-chart-wrap').classList.toggle('hidden', entries.length === 0)
+    if (!entries.length) return
+
+    if (referrersChartInstance) referrersChartInstance.destroy()
+    const ctx = document.getElementById('referrers-chart').getContext('2d')
+    referrersChartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: entries.map(([ref]) => ref),
+        datasets: [{
+          label: 'Clicks',
+          data: entries.map(([, count]) => count),
+          backgroundColor: '#5b4ff5',
+          borderRadius: 6,
+          maxBarThickness: 28
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(120,120,140,0.1)' } },
+          y: { grid: { display: false } }
+        }
+      }
+    })
+  }
+
+  function logout() { clearAuth(); window.location.href = '/pages/login.html' }
+
+  async function exportCSV() {
+    if (!currentLinkId) { toast('Select a link first.', 'error'); return }
+    const linkCode = document.getElementById('link-select').selectedOptions[0].textContent.split(' ')[0].replace('/', '')
+    await apiDownload(`/analytics/${currentLinkId}/export`, `${linkCode}-clicks.csv`)
+  }
+
+  loadLinks()
+</script>
+</body>
+</html>

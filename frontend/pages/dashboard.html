@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - LinkSnip</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <a href="/pages/dashboard.html" class="navbar-brand">🔗 LinkSnip</a>
+  <ul class="navbar-nav">
+    <li><span id="user-name" style="font-size:14px; color:var(--muted);"></span></li>
+    <li><button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">🌙</button></li>
+    <li><button onclick="logout()" class="btn btn-outline btn-sm">Logout</button></li>
+  </ul>
+</nav>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <a href="/pages/dashboard.html" class="sidebar-link active">📊 Dashboard</a>
+    <a href="/pages/analytics.html" class="sidebar-link">📈 Analytics</a>
+    <a href="/pages/qr.html" class="sidebar-link">📱 QR Codes</a>
+    <a href="/pages/settings.html" class="sidebar-link">⚙️ Settings</a>
+    <div id="admin-link" class="hidden">
+      <a href="/pages/admin.html" class="sidebar-link">🛡️ Admin Panel</a>
+    </div>
+
+    <!-- Folders -->
+    <div style="margin-top:24px; padding-top:16px; border-top:1px solid var(--border);">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:0 12px 8px;">
+        <span style="font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Folders</span>
+        <button onclick="openFolderModal()" title="New folder" style="background:none; border:none; cursor:pointer; color:var(--primary); font-size:17px; font-weight:700; line-height:1;">+</button>
+      </div>
+      <a href="#" onclick="selectFolder(null); return false;" class="sidebar-link folder-link active" data-folder="">
+        <span style="width:8px; height:8px; border-radius:50%; background:var(--muted-2); flex-shrink:0;"></span> All links
+      </a>
+      <div id="folders-list"></div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main-content">
+    <!-- Stats row -->
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-links">-</div>
+        <div class="stat-label">Total Links</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-clicks">-</div>
+        <div class="stat-label">Total Clicks</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-recent">-</div>
+        <div class="stat-label">Clicks (30 days)</div>
+      </div>
+    </div>
+
+    <!-- Create new link form -->
+    <div class="card mb-6">
+      <div class="card-header">
+        <h2 class="card-title">Create Short Link</h2>
+        <div style="display:flex; gap:4px; background:var(--bg-subtle); padding:4px; border-radius:10px;">
+          <button type="button" id="mode-single-btn" onclick="setCreateMode('single')" class="btn btn-sm" style="background:var(--surface); box-shadow:var(--shadow-xs);">Single</button>
+          <button type="button" id="mode-bulk-btn" onclick="setCreateMode('bulk')" class="btn btn-sm btn-outline" style="border:none;">Bulk Paste</button>
+        </div>
+      </div>
+      <div id="create-alert" class="alert hidden"></div>
+
+      <!-- Single link form -->
+      <form id="create-form">
+        <div class="form-group">
+          <label class="form-label">Long URL *</label>
+          <input type="url" id="original-url" class="form-input" placeholder="https://your-very-long-url.com/goes/here" required>
+        </div>
+        <div id="link-preview" class="hidden" style="padding:12px; background:var(--bg); border:1px solid var(--border); border-radius:8px; margin-bottom:16px; font-size:13px;">
+          <div id="preview-title" style="font-weight:600; margin-bottom:4px;"></div>
+          <div id="preview-desc" style="color:var(--muted);"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Custom Alias (optional)</label>
+            <input type="text" id="custom-alias" class="form-input" placeholder="e.g. anurag123">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Expiry Date (optional)</label>
+            <input type="datetime-local" id="expires-at" class="form-input">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Password (optional)</label>
+            <input type="password" id="link-password" class="form-input" placeholder="Protect with password">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tags (comma separated)</label>
+            <input type="text" id="tags" class="form-input" placeholder="e.g. work, marketing">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Folder (optional)</label>
+          <select id="create-folder" class="form-input">
+            <option value="">No folder</option>
+          </select>
+        </div>
+        <div class="card-header" style="border:none; padding:0; margin: 4px 0 12px;">
+          <span style="font-size:13px; font-weight:600; color:var(--muted);">UTM CAMPAIGN (OPTIONAL - APPENDED TO THE DESTINATION URL)</span>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Source</label>
+            <input type="text" id="utm-source" class="form-input" placeholder="e.g. twitter">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Medium</label>
+            <input type="text" id="utm-medium" class="form-input" placeholder="e.g. social">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Campaign</label>
+          <input type="text" id="utm-campaign" class="form-input" placeholder="e.g. summer-launch">
+        </div>
+
+        <div class="form-group">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="one-time">
+            <span style="font-size:14px;">One-time use (link deactivates after first click)</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="is-public">
+            <span style="font-size:14px;">Show on my public bio page</span>
+          </label>
+        </div>
+
+        <!-- Rotation / A-B testing -->
+        <div class="form-group">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="rotation-enabled" onchange="toggleRotationUI()">
+            <span style="font-size:14px;">Rotate between multiple destinations (A/B testing)</span>
+          </label>
+        </div>
+        <div id="rotation-box" class="hidden" style="padding:14px; background:var(--bg); border:1px dashed var(--border-strong); border-radius:10px; margin-bottom:16px;">
+          <p style="font-size:12px; color:var(--muted); margin-bottom:10px;">Traffic is split by weight. Weights must add up to 100.</p>
+          <div id="rotation-rows"></div>
+          <button type="button" onclick="addRotationRow()" class="btn btn-outline btn-sm" style="margin-top:6px;">+ Add destination</button>
+          <div id="rotation-total" style="font-size:12px; margin-top:8px; color:var(--muted);"></div>
+        </div>
+
+        <button type="submit" id="create-btn" class="btn btn-primary">
+          ✂️ Shorten URL
+        </button>
+      </form>
+
+      <!-- Bulk paste form -->
+      <form id="bulk-form" class="hidden">
+        <div class="form-group">
+          <label class="form-label">Paste URLs, one per line (max 50) *</label>
+          <textarea id="bulk-urls" class="form-input" rows="6" style="resize:vertical; font-family:monospace;" placeholder="https://example.com/one&#10;https://example.com/two&#10;https://example.com/three" required></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Folder (optional)</label>
+            <select id="bulk-folder" class="form-input">
+              <option value="">No folder</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tags for all (comma separated)</label>
+            <input type="text" id="bulk-tags" class="form-input" placeholder="e.g. campaign-2026">
+          </div>
+        </div>
+        <button type="submit" id="bulk-btn" class="btn btn-primary">📥 Shorten All</button>
+      </form>
+
+      <!-- Bulk results -->
+      <div id="bulk-results" class="hidden" style="margin-top:20px;"></div>
+
+      <!-- Success result box -->
+      <div id="result-box" class="hidden" style="margin-top:20px; padding:16px; background:var(--success-soft); border:1px solid color-mix(in srgb, var(--success) 35%, transparent); border-radius:10px;">
+        <div style="font-size:13px; color:#067a55; font-weight:600; margin-bottom:8px;">Link created!</div>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <a id="result-url" href="#" target="_blank" style="color:var(--primary); font-weight:600; font-size:15px;"></a>
+          <button id="copy-btn" class="btn btn-outline btn-sm" onclick="copyResult()">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Links table -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Your Links <span id="folder-title-suffix" style="color:var(--muted); font-weight:500;"></span></h2>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <span id="bulk-bar" class="hidden" style="display:flex; gap:8px; align-items:center; font-size:13px; color:var(--muted);">
+            <span id="bulk-count">0</span> selected
+            <select id="bulk-move-select" class="form-input" style="width:120px; padding:6px 8px; font-size:13px;">
+              <option value="">Move to...</option>
+            </select>
+            <button onclick="bulkMove()" class="btn btn-outline btn-sm">Move</button>
+            <button onclick="bulkDelete()" class="btn btn-danger btn-sm">Delete</button>
+          </span>
+          <input type="text" id="search" class="form-input" style="width:200px;" placeholder="Search...">
+        </div>
+      </div>
+      <div id="links-loading" style="text-align:center; padding:30px; color:var(--muted);">Loading links...</div>
+      <div id="links-container" class="hidden">
+        <table class="links-table" id="links-table">
+          <thead>
+            <tr>
+              <th style="width:32px;"><input type="checkbox" id="select-all" onchange="toggleSelectAll(this)"></th>
+              <th>Short URL</th>
+              <th class="hide-mobile">Original URL</th>
+              <th>Clicks</th>
+              <th class="hide-mobile">Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="links-tbody"></tbody>
+        </table>
+        <div id="no-links" class="hidden empty-state">
+          <div class="empty-icon">🔗</div>
+          No links yet. Create your first one above!
+        </div>
+
+        <!-- Pagination -->
+        <div id="pagination" style="display:flex; align-items:center; justify-content:center; gap:6px; margin-top:20px;"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Edit Link Modal -->
+<div id="edit-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">Edit Link</h3>
+      <button class="modal-close" onclick="closeEditModal()">×</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">New Destination URL</label>
+      <input type="url" id="edit-url" class="form-input">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Tags (comma separated)</label>
+      <input type="text" id="edit-tags" class="form-input">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Folder</label>
+      <select id="edit-folder" class="form-input">
+        <option value="">No folder</option>
+      </select>
+    </div>
+    <div style="display:flex; gap:10px; justify-content:flex-end;">
+      <button onclick="closeEditModal()" class="btn btn-outline">Cancel</button>
+      <button onclick="saveEdit()" class="btn btn-primary">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Folder Modal -->
+<div id="folder-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">New Folder</h3>
+      <button class="modal-close" onclick="closeFolderModal()">×</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Name</label>
+      <input type="text" id="folder-name" class="form-input" placeholder="e.g. Marketing">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Color</label>
+      <input type="color" id="folder-color" value="#5b4ff5" style="width:48px; height:36px; padding:2px; border:1px solid var(--border); border-radius:8px; cursor:pointer;">
+    </div>
+    <div style="display:flex; gap:10px; justify-content:flex-end;">
+      <button onclick="closeFolderModal()" class="btn btn-outline">Cancel</button>
+      <button onclick="createFolder()" class="btn btn-primary">Create</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+  if (!requireAuth()) throw new Error('Not logged in')
+  initTheme()
+
+  const user = getUser()
+  document.getElementById('user-name').textContent = user.name
+  if (user.role === 'admin') document.getElementById('admin-link').classList.remove('hidden')
+
+  let editingId = null
+  let resultUrl = ''
+  let currentFolder = ''
+  let currentPage = 1
+  let searchTimer = null
+  let selectedIds = new Set()
+  let folders = []
+
+  // Link preview - fetch title/description when the user finishes typing a URL 
+  let previewTimer = null
+  document.getElementById('original-url').addEventListener('input', (e) => {
+    clearTimeout(previewTimer)
+    const url = e.target.value.trim()
+    document.getElementById('link-preview').classList.add('hidden')
+    if (!url) return
+
+    previewTimer = setTimeout(async () => {
+      try { new URL(url) } catch { return } // not a valid URL yet, skip
+      const { ok, data } = await apiFetch(`/links/preview?url=${encodeURIComponent(url)}`)
+      if (ok && (data.title || data.description)) {
+        document.getElementById('preview-title').textContent = data.title || '(no title found)'
+        document.getElementById('preview-desc').textContent = data.description || ''
+        document.getElementById('link-preview').classList.remove('hidden')
+      }
+    }, 600) // debounce so we don't fetch on every keystroke
+  })
+
+  // Create mode toggle: single vs bulk paste
+  function setCreateMode(mode) {
+    const single = mode === 'single'
+    document.getElementById('create-form').classList.toggle('hidden', !single)
+    document.getElementById('bulk-form').classList.toggle('hidden', single)
+    document.getElementById('mode-single-btn').className = 'btn btn-sm' + (single ? '' : ' btn-outline')
+    document.getElementById('mode-bulk-btn').className = 'btn btn-sm' + (!single ? '' : ' btn-outline')
+    document.getElementById('mode-single-btn').style.cssText = single ? 'background:var(--surface); box-shadow:var(--shadow-xs);' : 'border:none;'
+    document.getElementById('mode-bulk-btn').style.cssText = !single ? 'background:var(--surface); box-shadow:var(--shadow-xs);' : 'border:none;'
+    document.getElementById('result-box').classList.add('hidden')
+    document.getElementById('bulk-results').classList.add('hidden')
+  }
+
+  // Rotation / A-B testing rows
+  function toggleRotationUI() {
+    const on = document.getElementById('rotation-enabled').checked
+    document.getElementById('rotation-box').classList.toggle('hidden', !on)
+    if (on && !document.getElementById('rotation-rows').children.length) {
+      addRotationRow(); addRotationRow()
+    }
+  }
+  function addRotationRow() {
+    const rows = document.getElementById('rotation-rows')
+    if (rows.children.length >= 5) return toast('Max 5 destinations.', 'error')
+    const row = document.createElement('div')
+    row.style.cssText = 'display:flex; gap:8px; margin-bottom:8px; align-items:center;'
+    row.innerHTML = `
+      <input type="url" class="form-input rotation-url" placeholder="https://destination.com" style="flex:2;">
+      <input type="number" class="form-input rotation-weight" placeholder="Weight %" min="1" max="100" style="flex:1;">
+      <button type="button" onclick="this.parentElement.remove(); updateRotationTotal()" class="btn btn-outline btn-sm">×</button>
+    `
+    rows.appendChild(row)
+    row.querySelector('.rotation-weight').addEventListener('input', updateRotationTotal)
+  }
+  function updateRotationTotal() {
+    const weights = [...document.querySelectorAll('.rotation-weight')].map(i => parseInt(i.value) || 0)
+    const total = weights.reduce((a, b) => a + b, 0)
+    const el = document.getElementById('rotation-total')
+    el.textContent = `Total: ${total}%` + (total !== 100 ? ' (must equal 100%)' : ' ✓')
+    el.style.color = total === 100 ? 'var(--success)' : 'var(--danger)'
+  }
+
+  // Folders
+  async function loadFolders() {
+    const { ok, data } = await apiFetch('/folders')
+    if (!ok) return
+    folders = data.folders
+
+    document.getElementById('folders-list').innerHTML = folders.map(f => `
+      <a href="#" onclick="selectFolder('${f.id}'); return false;" class="sidebar-link folder-link" data-folder="${f.id}">
+        <span style="width:8px; height:8px; border-radius:50%; background:${f.color}; flex-shrink:0;"></span>
+        ${f.name} <span style="margin-left:auto; font-size:12px; color:var(--muted-2);">${f.linkCount}</span>
+      </a>
+    `).join('')
+
+    const options = '<option value="">No folder</option>' + folders.map(f => `<option value="${f.id}">${f.name}</option>`).join('')
+    document.getElementById('create-folder').innerHTML = options
+    document.getElementById('bulk-folder').innerHTML = options
+    document.getElementById('edit-folder').innerHTML = options
+    document.getElementById('bulk-move-select').innerHTML = '<option value="">Move to...</option>' + options
+  }
+
+  function selectFolder(folderId) {
+    currentFolder = folderId || ''
+    currentPage = 1
+    document.querySelectorAll('.folder-link').forEach(el => el.classList.remove('active'))
+    document.querySelector(`.folder-link[data-folder="${folderId || ''}"]`)?.classList.add('active')
+    const f = folders.find(f => f.id === folderId)
+    document.getElementById('folder-title-suffix').textContent = f ? `- ${f.name}` : ''
+    loadLinks()
+  }
+
+  function openFolderModal() { document.getElementById('folder-modal').classList.remove('hidden') }
+  function closeFolderModal() {
+    document.getElementById('folder-modal').classList.add('hidden')
+    document.getElementById('folder-name').value = ''
+  }
+  async function createFolder() {
+    const name = document.getElementById('folder-name').value.trim()
+    if (!name) return toast('Folder name is required.', 'error')
+    const color = document.getElementById('folder-color').value
+    const { ok, data } = await apiFetch('/folders', { method: 'POST', body: { name, color } })
+    if (ok) { closeFolderModal(); loadFolders(); toast('Folder created!') }
+    else toast(data.message, 'error')
+  }
+
+  // Load overview stats
+  async function loadStats() {
+    const { ok, data } = await apiFetch('/analytics')
+    if (!ok) return
+    document.getElementById('stat-links').textContent  = formatNumber(data.totalLinks)
+    document.getElementById('stat-clicks').textContent = formatNumber(data.totalClicks)
+    document.getElementById('stat-recent').textContent = formatNumber(data.clicksLast30Days)
+  }
+
+  // Load links (server-side search + pagination + folder filter)
+  async function loadLinks() {
+    document.getElementById('links-loading').classList.remove('hidden')
+    document.getElementById('links-container').classList.add('hidden')
+
+    const q = document.getElementById('search').value.trim()
+    const params = new URLSearchParams({ page: currentPage, limit: 10 })
+    if (q) params.set('q', q)
+    if (currentFolder) params.set('folderId', currentFolder)
+
+    const { ok, data } = await apiFetch(`/links?${params.toString()}`)
+    document.getElementById('links-loading').classList.add('hidden')
+    document.getElementById('links-container').classList.remove('hidden')
+
+    if (!ok) return
+
+    selectedIds.clear()
+    updateBulkBar()
+    renderLinks(data.links)
+    renderPagination(data.pagination)
+  }
+
+  function renderPagination(p) {
+    const el = document.getElementById('pagination')
+    if (!p || p.totalPages <= 1) { el.innerHTML = ''; return }
+    let html = ''
+    for (let i = 1; i <= p.totalPages; i++) {
+      html += `<button onclick="goToPage(${i})" class="btn btn-sm ${i === p.page ? 'btn-primary' : 'btn-outline'}">${i}</button>`
+    }
+    el.innerHTML = html
+  }
+  function goToPage(p) { currentPage = p; loadLinks() }
+
+  function renderLinks(links) {
+    const tbody = document.getElementById('links-tbody')
+    document.getElementById('no-links').classList.toggle('hidden', links.length > 0)
+
+    tbody.innerHTML = links.map(link => `
+      <tr>
+        <td><input type="checkbox" class="row-check" data-id="${link.id}" onchange="toggleRowSelect('${link.id}', this)"></td>
+        <td>
+          <a href="${link.shortUrl}" target="_blank" class="short-url">/${link.shortCode}</a>
+          ${link.hasPassword ? '<span class="badge badge-blue" style="margin-left:4px;">🔒</span>' : ''}
+          ${link.isOneTime ? '<span class="badge badge-gray" style="margin-left:4px;">1×</span>' : ''}
+          ${link.isPublic ? '<span class="badge badge-green" style="margin-left:4px;">Public</span>' : ''}
+          ${link.rotationEnabled ? '<span class="badge badge-blue" style="margin-left:4px;">A/B</span>' : ''}
+        </td>
+        <td class="hide-mobile">
+          <span class="original-url" title="${link.originalUrl}">${link.originalUrl}</span>
+        </td>
+        <td><strong>${formatNumber(link.clickCount)}</strong></td>
+        <td class="hide-mobile" style="color:var(--muted); font-size:13px;">${formatDate(link.createdAt)}</td>
+        <td>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button onclick="copyToClipboard('${link.shortUrl}', this)" class="btn btn-outline btn-sm">Copy</button>
+            <a href="/pages/analytics.html?id=${link.id}" class="btn btn-outline btn-sm">Stats</a>
+            <button onclick='openEditModal(${JSON.stringify(link)})' class="btn btn-outline btn-sm">Edit</button>
+            <button onclick="togglePublic('${link.id}', ${link.isPublic}, this)" class="btn btn-outline btn-sm">${link.isPublic ? 'Unpublish' : 'Publish'}</button>
+            <button onclick="deleteLink('${link.id}', this)" class="btn btn-danger btn-sm">Delete</button>
+          </div>
+        </td>
+      </tr>
+    `).join('')
+  }
+
+  // Row / bulk selection
+  function toggleRowSelect(id, checkbox) {
+    if (checkbox.checked) selectedIds.add(id); else selectedIds.delete(id)
+    updateBulkBar()
+  }
+  function toggleSelectAll(checkbox) {
+    document.querySelectorAll('.row-check').forEach(c => {
+      c.checked = checkbox.checked
+      if (checkbox.checked) selectedIds.add(c.dataset.id); else selectedIds.delete(c.dataset.id)
+    })
+    updateBulkBar()
+  }
+  function updateBulkBar() {
+    document.getElementById('bulk-count').textContent = selectedIds.size
+    document.getElementById('bulk-bar').classList.toggle('hidden', selectedIds.size === 0)
+  }
+  async function bulkDelete() {
+    if (!selectedIds.size) return
+    if (!confirm(`Delete ${selectedIds.size} link(s)? This cannot be undone.`)) return
+    const { ok, data } = await apiFetch('/links/bulk-delete', { method: 'POST', body: { ids: [...selectedIds] } })
+    if (ok) { toast(data.message); loadLinks(); loadStats(); loadFolders() }
+    else toast(data.message, 'error')
+  }
+  async function bulkMove() {
+    if (!selectedIds.size) return
+    const folderId = document.getElementById('bulk-move-select').value
+    const { ok, data } = await apiFetch('/links/bulk-move', { method: 'POST', body: { ids: [...selectedIds], folderId: folderId || null } })
+    if (ok) { toast(data.message); loadLinks(); loadFolders() }
+    else toast(data.message, 'error')
+  }
+
+  async function togglePublic(id, currentlyPublic, btn) {
+    btn.disabled = true
+    const { ok, data } = await apiFetch(`/links/${id}`, { method: 'PATCH', body: { isPublic: !currentlyPublic } })
+    if (ok) { toast(currentlyPublic ? 'Removed from bio page.' : 'Added to your bio page!'); loadLinks() }
+    else { toast(data.message, 'error'); btn.disabled = false }
+  }
+
+  // Search (server-side, debounced)
+  document.getElementById('search').addEventListener('input', () => {
+    clearTimeout(searchTimer)
+    searchTimer = setTimeout(() => { currentPage = 1; loadLinks() }, 400)
+  })
+
+  // Create single link
+  document.getElementById('create-form').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const btn = document.getElementById('create-btn')
+
+    const rotationEnabled = document.getElementById('rotation-enabled').checked
+    let rotationDestinations = []
+    if (rotationEnabled) {
+      rotationDestinations = [...document.querySelectorAll('#rotation-rows > div')].map(row => ({
+        url: row.querySelector('.rotation-url').value,
+        weight: parseInt(row.querySelector('.rotation-weight').value) || 0
+      }))
+      const total = rotationDestinations.reduce((s, d) => s + d.weight, 0)
+      if (rotationDestinations.length < 2 || total !== 100) {
+        return toast('Rotation destinations must total 100% with at least 2 entries.', 'error')
+      }
+    }
+
+    btn.disabled = true
+    btn.textContent = 'Creating...'
+
+    const tags = document.getElementById('tags').value
+      .split(',').map(t => t.trim()).filter(Boolean)
+
+    const { ok, data } = await apiFetch('/links', {
+      method: 'POST',
+      body: {
+        originalUrl: document.getElementById('original-url').value,
+        customAlias: document.getElementById('custom-alias').value || undefined,
+        expiresAt:   document.getElementById('expires-at').value   || undefined,
+        password:    document.getElementById('link-password').value || undefined,
+        isOneTime:   document.getElementById('one-time').checked,
+        isPublic:    document.getElementById('is-public').checked,
+        folderId:    document.getElementById('create-folder').value || undefined,
+        utmSource:   document.getElementById('utm-source').value || undefined,
+        utmMedium:   document.getElementById('utm-medium').value || undefined,
+        utmCampaign: document.getElementById('utm-campaign').value || undefined,
+        rotationEnabled,
+        rotationDestinations,
+        tags
+      }
+    })
+
+    btn.disabled = false
+    btn.textContent = '✂️ Shorten URL'
+
+    if (ok) {
+      resultUrl = data.link.shortUrl
+      document.getElementById('result-url').textContent = resultUrl
+      document.getElementById('result-url').href        = resultUrl
+      document.getElementById('result-box').classList.remove('hidden')
+      document.getElementById('link-preview').classList.add('hidden')
+      document.getElementById('create-form').reset()
+      document.getElementById('rotation-box').classList.add('hidden')
+      document.getElementById('rotation-rows').innerHTML = ''
+      toast('Link created!')
+      loadLinks(); loadStats(); loadFolders()
+    } else {
+      toast(data.message, 'error')
+    }
+  })
+
+  // Bulk paste create
+  document.getElementById('bulk-form').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const btn = document.getElementById('bulk-btn')
+    const urls = document.getElementById('bulk-urls').value
+      .split('\n').map(u => u.trim()).filter(Boolean)
+
+    if (!urls.length) return toast('Paste at least one URL.', 'error')
+
+    btn.disabled = true
+    btn.textContent = 'Shortening...'
+
+    const tags = document.getElementById('bulk-tags').value.split(',').map(t => t.trim()).filter(Boolean)
+    const folderId = document.getElementById('bulk-folder').value || undefined
+
+    const { ok, data } = await apiFetch('/links/bulk', { method: 'POST', body: { urls, folderId, tags } })
+
+    btn.disabled = false
+    btn.textContent = '📥 Shorten All'
+
+    if (ok) {
+      const box = document.getElementById('bulk-results')
+      box.classList.remove('hidden')
+      box.innerHTML = `<div style="font-size:13px; font-weight:600; margin-bottom:10px;">${data.message}</div>` +
+        data.results.map(r => r.ok
+          ? `<div style="padding:8px 0; border-bottom:1px solid var(--border); font-size:13px;">✅ <a href="${r.link.shortUrl}" target="_blank" style="color:var(--primary); font-weight:600;">${r.link.shortUrl}</a> <span style="color:var(--muted);">← ${r.originalUrl}</span></div>`
+          : `<div style="padding:8px 0; border-bottom:1px solid var(--border); font-size:13px; color:var(--danger);">❌ ${r.originalUrl} - ${r.message}</div>`
+        ).join('')
+      document.getElementById('bulk-form').reset()
+      loadLinks(); loadStats(); loadFolders()
+    } else {
+      toast(data.message, 'error')
+    }
+  })
+
+  function copyResult() {
+    copyToClipboard(resultUrl, document.getElementById('copy-btn'))
+  }
+
+  // Edit modal
+  function openEditModal(link) {
+    editingId = link.id
+    document.getElementById('edit-url').value  = link.originalUrl
+    document.getElementById('edit-tags').value = link.tags.join(',')
+    document.getElementById('edit-folder').value = link.folderId || ''
+    document.getElementById('edit-modal').classList.remove('hidden')
+  }
+  function closeEditModal() {
+    document.getElementById('edit-modal').classList.add('hidden')
+    editingId = null
+  }
+  async function saveEdit() {
+    const { ok, data } = await apiFetch(`/links/${editingId}`, {
+      method: 'PATCH',
+      body: {
+        originalUrl: document.getElementById('edit-url').value,
+        tags: document.getElementById('edit-tags').value.split(',').map(t=>t.trim()).filter(Boolean),
+        folderId: document.getElementById('edit-folder').value || null
+      }
+    })
+    if (ok) { closeEditModal(); loadLinks(); loadFolders() }
+    else toast(data.message, 'error')
+  }
+
+  // Delete link
+  async function deleteLink(id, btn) {
+    if (!confirm('Delete this link? This cannot be undone.')) return
+    btn.disabled = true
+    const { ok } = await apiFetch(`/links/${id}`, { method: 'DELETE' })
+    if (ok) { loadLinks(); loadStats(); loadFolders() }
+    else btn.disabled = false
+  }
+
+  function logout() {
+    clearAuth()
+    window.location.href = '/pages/login.html'
+  }
+
+  // Init
+  loadStats()
+  loadFolders()
+  loadLinks()
+</script>
+</body>
+</html>

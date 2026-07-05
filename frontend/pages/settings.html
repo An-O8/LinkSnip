@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings — LinkSnip</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/pages/dashboard.html" class="navbar-brand">🔗 LinkSnip</a>
+  <ul class="navbar-nav">
+    <li><span id="user-name" style="font-size:14px;color:var(--muted);"></span></li>
+    <li><button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode">🌙</button></li>
+    <li><button onclick="logout()" class="btn btn-outline btn-sm">Logout</button></li>
+  </ul>
+</nav>
+
+<div class="layout">
+  <aside class="sidebar">
+    <a href="/pages/dashboard.html" class="sidebar-link">📊 Dashboard</a>
+    <a href="/pages/analytics.html" class="sidebar-link">📈 Analytics</a>
+    <a href="/pages/qr.html" class="sidebar-link">📱 QR Codes</a>
+    <a href="/pages/settings.html" class="sidebar-link active">⚙️ Settings</a>
+    <div id="admin-link" class="hidden">
+      <a href="/pages/admin.html" class="sidebar-link">🛡️ Admin Panel</a>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <div style="max-width:600px;">
+
+      <!-- Profile info card -->
+      <div class="card mb-6">
+        <div class="card-header">
+          <h2 class="card-title">Your Profile</h2>
+        </div>
+        <div style="display:flex; align-items:center; gap:16px; padding:16px 0; border-bottom:1px solid var(--border); margin-bottom:16px;">
+          <div style="width:56px; height:56px; border-radius:50%; background:var(--primary-soft); display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:700; color:var(--primary);" id="avatar-initials">?</div>
+          <div>
+            <div style="font-size:17px; font-weight:600;" id="profile-name">-</div>
+            <div style="font-size:14px; color:var(--muted);" id="profile-email">-</div>
+            <div style="margin-top:4px;" id="profile-role"></div>
+          </div>
+        </div>
+        <p style="font-size:13px; color:var(--muted);">Member since <span id="profile-joined">-</span></p>
+      </div>
+
+      <!-- Bio page & custom domain card -->
+      <div class="card mb-6">
+        <div class="card-header">
+          <h2 class="card-title">Bio Page &amp; Custom Domain</h2>
+        </div>
+        <p style="font-size:13px; color:var(--muted); margin-bottom:16px;">
+          Set a username to get a public page listing your public links at
+          <code style="background:var(--bg-subtle); padding:2px 6px; border-radius:4px;" id="bio-preview">yoursite.com/bio/username</code>.
+        </p>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <input type="text" id="username-input" class="form-input" placeholder="e.g. anurag">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Custom Domain (optional)</label>
+            <input type="text" id="domain-input" class="form-input" placeholder="e.g. links.mysite.com">
+          </div>
+        </div>
+
+        <hr style="border:none; border-top:1px solid var(--border); margin:20px 0;">
+
+        <p style="font-size:13px; font-weight:600; color:var(--muted); margin-bottom:12px;">BIO PAGE APPEARANCE</p>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Background Color</label>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <input type="color" id="bio-bg-color" value="#5b4ff5" style="width:40px; height:36px; padding:2px; border:1px solid var(--border); border-radius:8px; cursor:pointer;">
+              <input type="text" id="bio-bg-color-hex" class="form-input" placeholder="#5b4ff5">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Background Image URL (optional)</label>
+            <input type="url" id="bio-bg-image" class="form-input" placeholder="https://yoursite.com/cover.jpg">
+          </div>
+        </div>
+
+        <p style="font-size:13px; font-weight:600; color:var(--muted); margin: 16px 0 12px;">SOCIAL LINKS (OPTIONAL)</p>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">🐦 Twitter / X</label>
+            <input type="url" id="social-twitter" class="form-input" placeholder="https://twitter.com/you">
+          </div>
+          <div class="form-group">
+            <label class="form-label">📸 Instagram</label>
+            <input type="url" id="social-instagram" class="form-input" placeholder="https://instagram.com/you">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">▶️ YouTube</label>
+            <input type="url" id="social-youtube" class="form-input" placeholder="https://youtube.com/@you">
+          </div>
+          <div class="form-group">
+            <label class="form-label">🌐 Website</label>
+            <input type="url" id="social-website" class="form-input" placeholder="https://yoursite.com">
+          </div>
+        </div>
+
+        <div id="alert-settings" class="alert hidden"></div>
+        <div style="display:flex; gap:10px;">
+          <button onclick="saveSettings()" class="btn btn-primary" id="save-settings-btn">Save Settings</button>
+          <a id="preview-bio-link" href="#" target="_blank" class="btn btn-outline hidden">Preview Bio Page ↗</a>
+        </div>
+      </div>
+
+      <!-- API Key card -->
+      <div class="card mb-6">
+        <div class="card-header">
+          <h2 class="card-title">Developer API Key</h2>
+        </div>
+        <p style="font-size:14px; color:var(--muted); margin-bottom:16px;">
+          Use this key to create short links from your own apps or scripts.<br>
+          Send it as a header: <code style="background:var(--bg-subtle); padding:2px 6px; border-radius:4px; font-size:13px;">X-API-Key: your_key_here</code>
+        </p>
+
+        <div id="api-key-display" class="hidden" style="margin-bottom:16px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <input type="text" id="api-key-input" class="form-input" readonly style="font-family:monospace; font-size:13px; background:var(--bg-subtle);">
+            <button onclick="copyApiKey()" class="btn btn-outline btn-sm" id="copy-key-btn">Copy</button>
+          </div>
+          <p style="font-size:12px; color:var(--danger); margin-top:8px;">⚠️ Keep this secret. Anyone with this key can create links on your behalf.</p>
+        </div>
+
+        <div id="api-key-empty" style="margin-bottom:16px; color:var(--muted); font-size:14px;">
+          No API key yet. Generate one below.
+        </div>
+
+        <div id="alert-api" class="alert hidden"></div>
+
+        <button onclick="generateApiKey()" class="btn btn-primary" id="gen-key-btn">
+          🔑 Generate API Key
+        </button>
+      </div>
+
+      <!-- API usage example -->
+      <div class="card mb-6">
+        <div class="card-header">
+          <h2 class="card-title">API Example</h2>
+        </div>
+        <p style="font-size:13px; color:var(--muted); margin-bottom:12px;">Create a short link using the API:</p>
+        <pre style="background:#1e1e2e; color:#cdd6f4; padding:16px; border-radius:10px; font-size:13px; overflow-x:auto; line-height:1.6;"><code>POST http://localhost:5000/api/links
+Headers:
+  Content-Type: application/json
+  X-API-Key: your_api_key_here
+
+Body:
+{
+  "originalUrl": "https://your-long-url.com",
+  "customAlias": "mylink",
+  "expiresAt": "2025-12-31"
+}</code></pre>
+      </div>
+
+      <!-- Danger zone -->
+      <div class="card" style="border-color:color-mix(in srgb, var(--danger) 30%, transparent);">
+        <div class="card-header">
+          <h2 class="card-title" style="color:var(--danger);">Danger Zone</h2>
+        </div>
+        <p style="font-size:14px; color:var(--muted); margin-bottom:16px;">
+          Once you log out of all devices, you will need to sign in again.
+        </p>
+        <button onclick="logout()" class="btn btn-danger">Sign out everywhere</button>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+  if (!requireAuth()) throw new Error()
+  initTheme()
+
+  const user = getUser()
+  document.getElementById('user-name').textContent = user.name
+  if (user.role === 'admin') document.getElementById('admin-link').classList.remove('hidden')
+
+  // Fill profile
+  document.getElementById('profile-name').textContent = user.name
+  document.getElementById('profile-email').textContent = user.email
+  document.getElementById('avatar-initials').textContent = user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2)
+  document.getElementById('profile-role').innerHTML = user.role === 'admin'
+    ? '<span class="badge badge-blue">Admin</span>'
+    : '<span class="badge badge-gray">User</span>'
+
+  // Sync bio bg color swatch <-> hex input
+  document.getElementById('bio-bg-color').addEventListener('input', e => {
+    document.getElementById('bio-bg-color-hex').value = e.target.value
+  })
+  document.getElementById('bio-bg-color-hex').addEventListener('input', e => {
+    if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) document.getElementById('bio-bg-color').value = e.target.value
+  })
+
+  // Load fresh user data (includes apiKey + bio customization)
+  async function loadMe() {
+    const { ok, data } = await apiFetch('/auth/me')
+    if (!ok) return
+
+    if (data.user.apiKey) {
+      document.getElementById('api-key-input').value = data.user.apiKey
+      document.getElementById('api-key-display').classList.remove('hidden')
+      document.getElementById('api-key-empty').classList.add('hidden')
+      document.getElementById('gen-key-btn').textContent = '🔑 Regenerate API Key'
+    }
+
+    document.getElementById('username-input').value = data.user.username || ''
+    document.getElementById('domain-input').value = data.user.customDomain || ''
+
+    if (data.user.username) {
+      document.getElementById('preview-bio-link').href = `/bio/${data.user.username}`
+      document.getElementById('preview-bio-link').classList.remove('hidden')
+    }
+
+    const bg = data.user.bioBackgroundColor || '#5b4ff5'
+    document.getElementById('bio-bg-color').value = bg
+    document.getElementById('bio-bg-color-hex').value = bg
+    document.getElementById('bio-bg-image').value = data.user.bioBackgroundImage || ''
+
+    const social = data.user.socialLinks || {}
+    document.getElementById('social-twitter').value = social.twitter || ''
+    document.getElementById('social-instagram').value = social.instagram || ''
+    document.getElementById('social-youtube').value = social.youtube || ''
+    document.getElementById('social-website').value = social.website || ''
+  }
+
+  async function saveSettings() {
+    const btn = document.getElementById('save-settings-btn')
+    btn.disabled = true
+    btn.textContent = 'Saving...'
+
+    const { ok, data } = await apiFetch('/auth/me', {
+      method: 'PATCH',
+      body: {
+        username: document.getElementById('username-input').value,
+        customDomain: document.getElementById('domain-input').value,
+        bioBackgroundColor: document.getElementById('bio-bg-color-hex').value,
+        bioBackgroundImage: document.getElementById('bio-bg-image').value,
+        socialLinks: {
+          twitter: document.getElementById('social-twitter').value,
+          instagram: document.getElementById('social-instagram').value,
+          youtube: document.getElementById('social-youtube').value,
+          website: document.getElementById('social-website').value
+        }
+      }
+    })
+
+    btn.disabled = false
+    btn.textContent = 'Save Settings'
+
+    if (ok) {
+      toast('Settings saved!')
+      if (data.user.username) {
+        document.getElementById('preview-bio-link').href = `/bio/${data.user.username}`
+        document.getElementById('preview-bio-link').classList.remove('hidden')
+      }
+    } else {
+      showAlert('alert-settings', data.message)
+    }
+  }
+
+  async function generateApiKey() {
+    const btn = document.getElementById('gen-key-btn')
+    btn.disabled = true
+    btn.textContent = 'Generating...'
+
+    const { ok, data } = await apiFetch('/auth/generate-api-key', { method: 'POST' })
+
+    btn.disabled = false
+    btn.textContent = '🔑 Regenerate API Key'
+
+    if (ok) {
+      document.getElementById('api-key-input').value = data.apiKey
+      document.getElementById('api-key-display').classList.remove('hidden')
+      document.getElementById('api-key-empty').classList.add('hidden')
+      showAlert('alert-api', 'New API key generated!', 'success')
+    } else {
+      showAlert('alert-api', data.message)
+    }
+  }
+
+  function copyApiKey() {
+    copyToClipboard(
+      document.getElementById('api-key-input').value,
+      document.getElementById('copy-key-btn')
+    )
+  }
+
+  function logout() { clearAuth(); window.location.href = '/pages/login.html' }
+
+  loadMe()
+</script>
+</body>
+</html>

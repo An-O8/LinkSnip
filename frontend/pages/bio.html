@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bio - LinkSnip</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div id="bio-page-bg" style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; background:linear-gradient(135deg, #5b4ff5, #7a3fd8); background-size:cover; background-position:center; transition:background 0.3s;">
+  <div style="width:100%; max-width:420px;">
+
+    <div id="bio-loading" style="text-align:center; color:rgba(255,255,255,0.85); padding:40px;">Loading...</div>
+
+    <div id="bio-notfound" class="hidden" style="text-align:center; padding:40px; background:var(--surface); border-radius:20px;">
+      <div style="font-size:56px; margin-bottom:12px;">🔍</div>
+      <h1 style="font-size:22px; margin-bottom:8px;">Page not found</h1>
+      <p style="color:var(--muted);">This bio page doesn't exist.</p>
+    </div>
+
+    <div id="bio-content" class="hidden">
+      <div style="text-align:center; margin-bottom:24px;">
+        <div style="width:72px; height:72px; border-radius:50%; background:var(--surface); display:flex; align-items:center; justify-content:center; font-size:28px; font-weight:700; color:var(--primary); margin:0 auto 14px; box-shadow:var(--shadow-lg);" id="bio-avatar">?</div>
+        <h1 style="font-size:22px; font-weight:700; color:#fff; text-shadow:0 1px 8px rgba(0,0,0,0.25);" id="bio-name"></h1>
+
+        <div id="bio-socials" style="display:flex; justify-content:center; gap:14px; margin-top:12px;"></div>
+      </div>
+
+      <div id="bio-links" style="display:flex; flex-direction:column; gap:12px;"></div>
+
+      <div id="bio-empty" class="hidden" style="text-align:center; color:#fff; opacity:0.85; padding:30px;">
+        No public links yet.
+      </div>
+
+      <p style="text-align:center; margin-top:32px; font-size:12px; color:rgba(255,255,255,0.75);">
+        Powered by <a href="/" style="color:#fff; text-decoration:none; font-weight:700;">LinkSnip</a>
+      </p>
+    </div>
+
+  </div>
+</div>
+
+<style>
+  .bio-link-btn {
+    display: block;
+    padding: 16px 20px;
+    background: rgba(255,255,255,0.95);
+    border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 12px;
+    text-align: center;
+    text-decoration: none;
+    color: var(--text);
+    font-weight: 600;
+    font-size: 15px;
+    backdrop-filter: blur(8px);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .bio-link-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .bio-tags { display: block; font-size: 12px; font-weight: 400; color: var(--muted); margin-top: 4px; }
+  .bio-social-icon {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: rgba(255,255,255,0.2); backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; text-decoration: none; transition: transform 0.15s, background 0.15s;
+  }
+  .bio-social-icon:hover { transform: translateY(-2px); background: rgba(255,255,255,0.3); }
+</style>
+
+<script src="/js/api.js"></script>
+<script>
+  initTheme()
+
+  const username = new URLSearchParams(window.location.search).get('u')
+
+  async function loadBio() {
+    if (!username) return showNotFound()
+
+    try {
+      const res = await fetch(`${API}/bio/${username}`)
+      if (!res.ok) return showNotFound()
+      const data = await res.json()
+
+      document.getElementById('bio-loading').classList.add('hidden')
+      document.getElementById('bio-content').classList.remove('hidden')
+      document.getElementById('bio-name').textContent = data.name
+      document.getElementById('bio-avatar').textContent = data.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+
+      // Custom background: image takes priority over solid color
+      const bg = document.getElementById('bio-page-bg')
+      if (data.backgroundImage) {
+        bg.style.background = `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)), url('${data.backgroundImage}')`
+        bg.style.backgroundSize = 'cover'
+        bg.style.backgroundPosition = 'center'
+      } else if (data.backgroundColor) {
+        bg.style.background = data.backgroundColor
+      }
+
+      // Social icons
+      const icons = { twitter: '🐦', instagram: '📸', youtube: '▶️', website: '🌐' }
+      const social = data.socialLinks || {}
+      const socialHtml = Object.entries(social)
+        .filter(([, url]) => url)
+        .map(([key, url]) => `<a href="${url}" target="_blank" class="bio-social-icon" title="${key}">${icons[key] || '🔗'}</a>`)
+        .join('')
+      document.getElementById('bio-socials').innerHTML = socialHtml
+
+      if (!data.links.length) {
+        document.getElementById('bio-empty').classList.remove('hidden')
+        return
+      }
+
+      document.getElementById('bio-links').innerHTML = data.links.map(l => `
+        <a href="${l.shortUrl}" target="_blank" class="bio-link-btn">
+          /${l.shortCode}
+          ${l.tags.length ? `<span class="bio-tags">${l.tags.join(' · ')}</span>` : ''}
+        </a>
+      `).join('')
+    } catch {
+      showNotFound()
+    }
+  }
+
+  function showNotFound() {
+    document.getElementById('bio-loading').classList.add('hidden')
+    document.getElementById('bio-notfound').classList.remove('hidden')
+  }
+
+  loadBio()
+</script>
+</body>
+</html>
