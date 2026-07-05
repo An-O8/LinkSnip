@@ -4,7 +4,7 @@ const User = require('../models/User')
 const Link = require('../models/Link')
 const { asyncHandler, ApiError } = require('../middleware/errorHandler')
 
-// ─── GET /api/bio/:username — Public, no auth. Powers the /bio/:username page ─
+// GET /api/bio/:username - Public, no auth. Powers the /bio/:username page 
 router.get('/:username', asyncHandler(async (req, res) => {
   const user = await User.findOne({ username: req.params.username.toLowerCase() })
   if (!user) throw new ApiError(404, 'This page does not exist.')

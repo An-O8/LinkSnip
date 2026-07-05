@@ -1,100 +1,120 @@
-# 🔗 LinkSnip
+# LinkSnip
 
-A full-stack URL shortener with authentication, analytics, QR codes, and an admin panel — built with Node.js, Express, MongoDB, and vanilla JavaScript.
+A full stack URL shortener with authentication, click analytics, QR codes, folders and A/B link rotation.
 
-## What it does
+Built with Node.js, Express, and MongoDB on the backend, and vanilla HTML/CSS/JS on the frontend - no framework, no build step.
 
-- **Sign up / log in** with a JWT-based auth system
-- **Create short links** with optional custom aliases, expiry dates, password protection, and one-time-use
-- **UTM campaign builder** — add source/medium/campaign when creating a link; they get baked into the destination URL automatically
-- **Live link preview** — paste a URL and see its title/description before creating the link
-- **Track clicks** — device, browser, OS, referrer, and **country** (via offline geoip-lite lookup), visualized with Chart.js
-- **Export click data as CSV** from the analytics page
-- **QR codes** — with optional logo overlay in the center
-- **Public bio page** (`/bio/yourusername`) — a link-in-bio style page listing any links you mark "public"
-- **Custom domain (display-only)** — set a domain in Settings and your short links will display under that domain
-- **Dark mode** with persisted preference, toast notifications instead of browser `alert()`
-- **Tag filtering** on the dashboard, in addition to text search
-- **Developer API** — create links programmatically using an API key
-- **Admin panel** — manage users (block/unblock) and moderate all links
+## Features
 
-## Tech stack
+- Short links with custom aliases, expiry dates, password protection, and one time use
+- Guest shortening - anyone can shorten a URL from the homepage without an account
+- Bulk creation - paste multiple URLs at once
+- Folders - organize links into groups, move or delete several at once
+- A/B link rotation - one short link splits traffic across multiple destinations by weight
+- UTM builder - source/medium/campaign get baked into the destination URL automatically
+- Live link preview - see a URL's title and description before shortening it
+- Search and pagination on the dashboard
+- Click analytics - device, browser, OS, country, and referrer, charted, with CSV export and a live updating click counter
+- QR codes - PNG or SVG, adjustable size, optional logo overlay
+- Public bio page (`/bio/username`) with a custom background and social links
+- Dark mode with persisted preference
+- Developer API with API-key authentication
+- Admin panel - block users, moderate links
 
-- **Backend:** Node.js, Express, MongoDB (Mongoose)
-- **Auth:** JWT (JSON Web Tokens), bcrypt for password hashing
-- **Validation:** Zod — every request body is checked against a schema before touching the database
-- **Geo lookup:** geoip-lite — offline, no external API calls or rate limits
-- **QR codes:** `qrcode` + `sharp` for logo compositing
-- **Frontend:** Vanilla HTML/CSS/JavaScript (no framework — this was a deliberate choice, see below)
+## Stack
 
-## Why no React?
+| Layer | Tech |
+|---|---|
+| Backend | Node.js, Express |
+| Database | MongoDB (Mongoose) |
+| Auth | JWT, bcrypt |
+| Validation | Zod |
+| Geo lookup | geoip-lite (offline) |
+| QR codes | `qrcode`, `sharp` |
+| Frontend | Vanilla HTML/CSS/JS |
 
-This project intentionally uses vanilla JS instead of React. Two reasons:
+## How authentication works
 
-1. **Depth over breadth.** A URL shortener's real engineering challenges — short code collisions, auth, rate limiting, click tracking — are backend problems. Adding a frontend framework wouldn't make those parts better; it would just add more surface area to learn at once.
-2. **Every line here is something I can explain.** I'd rather have a smaller project I fully understand than a bigger one with parts I copy-pasted and can't defend in an interview.
+Signup and login return a JWT signed with `JWT_SECRET`, valid for 7 days. The frontend stores it in `localStorage` and sends it as `Authorization: Bearer <token>` on every request. The `protect` middleware verifies the token, loads the user, and rejects the request if the token is invalid, expired or the user is blocked.
+
+## How a redirect works
+
+The core logic lives in `controllers/redirectController.js`:
+
+1. A visitor hits `yoursite.com/abc123`
+2. Look up `abc123` in MongoDB - if it doesn't exist or is inactive, show a 404
+3. If it's expired, deactivate it and return an error instead of redirecting
+4. If it's password-protected and no password was given, redirect to the password page
+5. Log the click (device, browser, referrer, country) as a fire and forget write - this never blocks the redirect
+6. Increment the click counter
+7. If it's a one time link, deactivate it right after this use
+8. If rotation is enabled with two or more weighted destinations, pick one (see below)
+9. Send a 301 redirect to the resolved URL
+
+## How link rotation picks a destination
+
+Each destination has a weight, e.g. `[{ url: A, weight: 70 }, { url: B, weight: 30 }]`. On every click:
+
+```js
+let roll = Math.random() * totalWeight
+for (const dest of destinations) {
+  roll -= dest.weight
+  if (roll <= 0) return dest.url
+}
+```
+
+This is weighted random selection, not round robin - any single click is genuinely random, but across many clicks the split converges toward the configured weights. Weights must sum to 100; this is checked in the browser for instant feedback and enforced server side with Zod.
 
 ## Project structure
 
 ```
 backend/
-  server.js              # entry point — wires everything together
-  models/                # Mongoose schemas: User, Link, Click
-  routes/                # Express routers: auth, links, analytics, admin, bio
-  controllers/
-    redirectController.js  # the actual "shortener" logic — see below
-  middleware/
-    auth.js               # JWT verification
-    errorHandler.js       # centralized error handling
-    validate.js            # Zod validation middleware
-    rateLimiter.js         # prevents abuse (e.g. brute-forcing login)
-  validators/             # Zod schemas — what a valid request looks like
+  server.js
+  models/        User, Link, Click, Folder
+  routes/        auth, links, analytics, admin, bio, folders
+  controllers/   redirectController.js
+  middleware/    auth, error handling, rate limiting, validation
+  validators/    Zod schemas
 
 frontend/
-  index.html
-  pages/                  # dashboard, login, signup, analytics, admin, bio, etc.
-  js/api.js               # one shared fetch wrapper, toast/theme helpers, used by every page
-  css/style.css           # includes dark mode variables + toast styles
+  index.html     includes the guest-shorten box
+  pages/         dashboard, login, signup, analytics, qr, settings, bio, admin
+  js/api.js      shared fetch wrapper, toast and theme helpers
+  css/style.css
 ```
-
-## How a redirect actually works (the core of the whole project)
-
-This is `controllers/redirectController.js` — the file every URL shortener interview question is really asking about:
-
-1. Someone visits `yoursite.com/abc123`
-2. Look up `abc123` in MongoDB — does an active link with that code exist?
-3. If not → show a 404 page
-4. If it exists but is expired → deactivate it, return an error
-5. If it's password-protected and no password was given → redirect to the password entry page
-6. Log the click (device/browser/referrer/country) — this doesn't block the redirect; if it fails, the user still gets sent to their destination
-7. Increment the click counter
-8. If it's a one-time link, deactivate it now
-9. Send a `301 redirect` to the real URL
 
 ## Setup
 
 ```bash
 cd backend
 npm install
-cp .env.example .env    # fill in MONGO_URI and a JWT_SECRET
+cp .env.example .env
+```
+
+Fill in `.env`:
+
+```
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=any_long_random_string
+BASE_URL=http://localhost:5000
+```
+
+Start the server:
+
+```bash
 npm run dev
 ```
 
-Requires a running MongoDB instance (local install or a free MongoDB Atlas cluster). `sharp` (used for QR logo overlays) installs a prebuilt binary automatically on `npm install` — no extra setup needed on Windows/Mac/Linux.
+Requires a running MongoDB instance - local install or a free MongoDB Atlas cluster. `sharp`, used for QR logo compositing, installs a prebuilt binary automatically on `npm install`.
 
-Then open `http://localhost:5000` in your browser.
+Open `http://localhost:5000`.
 
-## Notes on a couple of features, so you can explain them honestly
+`BASE_URL` determines the domain shown on generated short links - it needs to point to wherever the app is actually reachable (a deployment, or a tunnel like ngrok) for links to work outside your own machine.
 
-- **Country lookup** uses `geoip-lite`, an offline database — it won't resolve `127.0.0.1`/localhost correctly since that's not a real public IP. Test it by deploying, or by manually inserting a Click document with a real public IP.
-- **Custom domain** is display-only in this version: it changes what URL is *shown* to the user, but the actual redirect still runs on this server's own domain. Making a genuinely separate domain redirect through this server would require DNS configuration (pointing that domain's A/CNAME record here) — real, but infrastructure work outside the codebase itself. Good to say exactly this if asked in an interview.
-- **Link-in-bio** pages are public and unauthenticated by design (that's the point — anyone with the link should see them), so `/api/bio/:username` deliberately has no `protect` middleware.
+## What's next
 
-## What I'd add next (if I were continuing this)
-
-- Redis caching on the redirect path (currently every redirect hits MongoDB directly — fine at small scale, would need caching at real traffic)
-- Move click-logging off the request path into a background job queue
-- Refresh tokens instead of one long-lived JWT
-- Actual DNS-based custom domain redirects, not just display
-
-These are deliberately left out for now — they're real production concerns, but adding them before I could explain the ones already here would make this project harder to defend, not stronger.
+- Redis caching on the redirect path
+- Move click logging into a background queue
+- Refresh tokens instead of a single long lived JWT
+- Real DNS based custom domains, beyond the current display-only version
+- Per destination analytics for rotation links
